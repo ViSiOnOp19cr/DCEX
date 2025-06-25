@@ -26,7 +26,6 @@ export const ProfileCard = ({publicKey}: {
     const { tokenBalances, loading } = useTokens(publicKey);
 
     if (session.status === "loading") {
-        // TODO: replace with a skeleton
         return <div>
             Loading...
         </div>
