@@ -23,7 +23,7 @@ export const ProfileCard = ({publicKey}: {
     const session = useSession();
     const router = useRouter();
     const [selectedTab, setSelectedTab] = useState<Tab>("tokens");
-    const { tokenBalances, loading } = useTokens(publicKey);
+    const { tokenBalances, loading, error } = useTokens(publicKey);
 
     if (session.status === "loading") {
         return <div>
@@ -48,7 +48,7 @@ export const ProfileCard = ({publicKey}: {
                 }}>{tab.name}</TabButton>)}
             </div>
             
-            <div className={`${selectedTab === "tokens" ? "visible" : "hidden"}`}><Assets tokenBalances={tokenBalances} loading={loading} publicKey={publicKey} /> </div>
+            <div className={`${selectedTab === "tokens" ? "visible" : "hidden"}`}><Assets tokenBalances={tokenBalances} loading={loading} error={error} publicKey={publicKey} /> </div>
             <div className={`${selectedTab === "swap" ? "visible" : "hidden"}`}><Swap tokenBalances={tokenBalances} publicKey={publicKey} /> </div>
             <div className={`${(selectedTab !== "swap" && selectedTab !== "tokens") ? "visible" : "hidden"}`}><Warning /> </div>
         </div>
@@ -62,13 +62,14 @@ function Warning() {
     </div>
 }
 
-function Assets({publicKey, tokenBalances, loading}: {
+function Assets({publicKey, tokenBalances, loading, error}: {
     publicKey: string;
     tokenBalances: {
         totalBalance: number,
         tokens: TokenWithbalance[]
     } | null;
     loading: boolean;
+    error: string | null;
 }) {
     const [copied, setCopied] = useState(false);
 
@@ -84,7 +85,19 @@ function Assets({publicKey, tokenBalances, loading}: {
     }, [copied])
 
     if (loading) {
-        return "Loading..."
+        return <div className="bg-slate-50 py-32 px-10 flex justify-center">
+            Loading token balances...
+        </div>
+    }
+
+    if (error) {
+        return <div className="bg-red-50 py-32 px-10 flex justify-center text-red-600">
+            <div className="text-center">
+                <div className="text-lg font-semibold">Error loading token balances</div>
+                <div className="text-sm mt-2">{error}</div>
+                <div className="text-xs mt-2 text-gray-500">Check the console for more details</div>
+            </div>
+        </div>
     }
 
     return <div className="text-slate-500">

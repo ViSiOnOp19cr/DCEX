@@ -1,7 +1,7 @@
 
 import { getServerSession } from "next-auth";
 import { ProfileCard } from "../components/ProfileCard";
-import { db } from "../lib/prisma";
+import {db} from "../lib/prisma";
 import { authConfig } from "../lib/auth";
 
 async function getUserWallet() {
@@ -33,6 +33,7 @@ export default async function Dashboard() {
     }
 
     return <div>
+
         <ProfileCard publicKey={userWallet.userWallet?.publicKey} />
     </div>
 }
