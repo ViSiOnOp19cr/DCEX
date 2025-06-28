@@ -14,12 +14,10 @@ export async function GET(req: NextRequest) {
 
         const pubkey = new PublicKey(address);
         
-        // Fetch recent transactions
         const signatures = await connection.getSignaturesForAddress(pubkey, {
             limit: 20
         });
 
-        // Parse transactions
         const transactions = await Promise.all(
             signatures.map(async (sig) => {
                 try {
@@ -29,21 +27,18 @@ export async function GET(req: NextRequest) {
                     
                     if (!tx || !tx.meta) return null;
 
-                    // Determine transaction type and details
                     let type: 'sent' | 'received' | 'swap' | 'unknown' = 'unknown';
                     let amount = '0';
                     let token = 'SOL';
                     let from = '';
                     let to = '';
 
-                    // Check for token transfers in instructions
                     const instructions = tx.transaction.message.instructions;
                     
                     for (const instruction of instructions) {
                         if ('parsed' in instruction && instruction.parsed) {
                             const parsedInfo = instruction.parsed;
                             
-                            // Handle token transfers
                             if (parsedInfo.type === 'transfer' || parsedInfo.type === 'transferChecked') {
                                 const info = parsedInfo.info;
                                 from = info.source || info.sender || '';
@@ -55,10 +50,9 @@ export async function GET(req: NextRequest) {
                                     type = 'received';
                                 }
                                 
-                                // Get amount
                                 if (info.tokenAmount) {
                                     amount = info.tokenAmount.uiAmountString || info.tokenAmount.amount;
-                                    token = 'Token'; // Would need token metadata for exact name
+                                    token = 'Token';
                                 } else if (info.lamports) {
                                     amount = (info.lamports / 1e9).toString();
                                     token = 'SOL';
@@ -67,7 +61,6 @@ export async function GET(req: NextRequest) {
                                 }
                             }
                             
-                            // Detect swaps (Jupiter)
                             if (parsedInfo.program === 'jupiter' || 
                                 (instruction.programId && instruction.programId.toString().includes('JUP'))) {
                                 type = 'swap';
@@ -75,7 +68,6 @@ export async function GET(req: NextRequest) {
                         }
                     }
 
-                    // Fallback: Check balance changes
                     if (type === 'unknown' && tx.meta.preBalances && tx.meta.postBalances) {
                         const accountIndex = tx.transaction.message.accountKeys.findIndex(
                             key => key.pubkey.toString() === address
@@ -110,7 +102,6 @@ export async function GET(req: NextRequest) {
             })
         );
 
-        // Filter out null transactions and sort by timestamp
         const validTransactions = transactions
             .filter(tx => tx !== null)
             .sort((a, b) => b!.timestamp - a!.timestamp);

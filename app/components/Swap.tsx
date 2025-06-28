@@ -21,8 +21,6 @@ export function Swap({ publicKey, tokenBalances }: {
     const [swapping, setSwapping] = useState(false);
     const [swapResult, setSwapResult] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
-    // TODO: Use async useEffects that u can cancel
-    // Use debouncing
     useEffect(() => {
         if (!baseAmount || baseAmount === "0" || Number(baseAmount) <= 0) {
             setQuoteAmount("");
@@ -64,11 +62,9 @@ export function Swap({ publicKey, tokenBalances }: {
                     type: 'success',
                     message: `Swap successful! View on explorer: ${res.data.explorerUrl}`
                 });
-                // Reset form after successful swap
                 setBaseAmount("");
                 setQuoteAmount("");
                 setQuoteResponse(null);
-                // Reload balances after 3 seconds
                 setTimeout(() => {
                     window.location.reload();
                 }, 3000);
