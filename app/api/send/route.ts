@@ -59,7 +59,17 @@ export async function POST(req: NextRequest) {
 
         let txid: string;
 
+        const balance = await connection.getBalance(senderPubkey);
+        const estimatedFee = 5000; // 0.000005 SOL typical fee
+
         if (isNativeSol) {
+            const totalNeeded = (Number(amount) * LAMPORTS_PER_SOL) + estimatedFee;
+            if (balance < totalNeeded) {
+                return NextResponse.json({ 
+                    error: "Insufficient balance (including transaction fees)" 
+                }, { status: 400 });
+            }
+
             const lamports = Number(amount) * LAMPORTS_PER_SOL;
             
             const transaction = new Transaction().add(
@@ -107,7 +117,26 @@ export async function POST(req: NextRequest) {
                 );
             }
 
-     
+            if (balance < estimatedFee) {
+                return NextResponse.json({ 
+                    error: "Insufficient SOL for transaction fees" 
+                }, { status: 400 });
+            }
+            
+            try {
+                const tokenAccount = await getAccount(connection, senderTokenAccount);
+                const tokenBalance = Number(tokenAccount.amount);
+                if (tokenBalance < amount_raw) {
+                    return NextResponse.json({ 
+                        error: "Insufficient token balance" 
+                    }, { status: 400 });
+                }
+            } catch {
+                return NextResponse.json({ 
+                    error: "No token account found or insufficient balance" 
+                }, { status: 400 });
+            }
+
             transaction.add(
                 createTransferInstruction(
                     senderTokenAccount,
