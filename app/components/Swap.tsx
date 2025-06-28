@@ -14,31 +14,96 @@ export function Swap({ publicKey, tokenBalances }: {
 }) {
     const [baseAsset, setBaseAsset] = useState(SUPPORTED_TOKENS[0])
     const [quoteAsset, setQuoteAsset] = useState(SUPPORTED_TOKENS[1])
-    const [baseAmount, setBaseAmount] = useState<string>();
-    const [quoteAmount, setQuoteAmount] = useState<string>();
+    const [baseAmount, setBaseAmount] = useState<string>("");
+    const [quoteAmount, setQuoteAmount] = useState<string>("");
     const [fetchingQuote, setFetchingQuote] = useState(false);
     const [quoteResponse, setQuoteResponse] = useState(null);
+    const [swapping, setSwapping] = useState(false);
+    const [swapResult, setSwapResult] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
     // TODO: Use async useEffects that u can cancel
     // Use debouncing
     useEffect(() => {
-        if (!baseAmount) {
+        if (!baseAmount || baseAmount === "0" || Number(baseAmount) <= 0) {
+            setQuoteAmount("");
+            setQuoteResponse(null);
             return;
         }
+        
         setFetchingQuote(true);
-        axios.get(`https://quote-api.jup.ag/v6/quote?inputMint=${baseAsset.mint}&outputMint=${quoteAsset.mint}&amount=${Number(baseAmount) * (10 ** baseAsset.decimals)}&slippageBps=50`)
+        const amountInSmallestUnit = Math.floor(Number(baseAmount) * Math.pow(10, baseAsset.decimals));
+        
+        axios.get(`https://quote-api.jup.ag/v6/quote?inputMint=${baseAsset.mint}&outputMint=${quoteAsset.mint}&amount=${amountInSmallestUnit}&slippageBps=50`)
             .then(res => {
-                setQuoteAmount((Number(res.data.outAmount) / Number(10 ** quoteAsset.decimals)).toString())
+                setQuoteAmount((Number(res.data.outAmount) / Math.pow(10, quoteAsset.decimals)).toString())
                 setFetchingQuote(false);
                 setQuoteResponse(res.data);
+            })
+            .catch(err => {
+                console.error("Quote fetch error:", err);
+                setFetchingQuote(false);
+                setQuoteAmount("");
+                setQuoteResponse(null);
             })
 
     }, [baseAsset, quoteAsset, baseAmount])
 
-    return <div className="p-12 bg-slate-50">
+    const handleSwap = async () => {
+        if (!quoteResponse || !baseAmount) return;
+        
+        setSwapping(true);
+        setSwapResult(null);
+        
+        try {
+            const res = await axios.post("/api/swap", { 
+                quoteResponse
+            });
+            
+            if (res.data.success && res.data.txnId) {
+                setSwapResult({
+                    type: 'success',
+                    message: `Swap successful! View on explorer: ${res.data.explorerUrl}`
+                });
+                // Reset form after successful swap
+                setBaseAmount("");
+                setQuoteAmount("");
+                setQuoteResponse(null);
+                // Reload balances after 3 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            }
+        } catch(e: any) {
+            console.error("Swap error:", e);
+            setSwapResult({
+                type: 'error',
+                message: e.response?.data?.error || "Failed to execute swap. Please try again."
+            });
+        } finally {
+            setSwapping(false);
+        }
+    };
+
+    const baseBalance = tokenBalances?.tokens.find(x => x.name === baseAsset.name)?.balance || "0";
+    const hasInsufficientBalance = Number(baseAmount) > Number(baseBalance);
+
+    return <div className="p-6 md:p-12 bg-slate-50">
         <div className="text-2xl font-bold pb-4">
             Swap Tokens
         </div>
+        
+        {swapResult && (
+            <div className={`mb-4 p-4 rounded-lg ${swapResult.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                <div className="font-semibold">{swapResult.type === 'success' ? '✓ Success' : '✗ Error'}</div>
+                <div className="text-sm mt-1">{swapResult.message}</div>
+                {swapResult.type === 'success' && swapResult.message.includes('explorer') && (
+                    <a href={swapResult.message.split(': ')[1]} target="_blank" rel="noopener noreferrer" className="text-sm underline mt-2 inline-block">
+                        View transaction →
+                    </a>
+                )}
+            </div>
+        )}
+        
          <SwapInputRow 
             amount={baseAmount} 
             onAmountChange={(value: string) => {
@@ -55,8 +120,8 @@ export function Swap({ publicKey, tokenBalances }: {
                 <div className="font-normal pr-1">
                     Current Balance:
                 </div>
-                <div className="font-semibold">
-                    {tokenBalances?.tokens.find(x => x.name === baseAsset.name)?.balance} {baseAsset.name}
+                <div className={`font-semibold ${hasInsufficientBalance ? 'text-red-600' : ''}`}>
+                    {baseBalance} {baseAsset.name}
                 </div>
             </div>}
         />
@@ -66,7 +131,7 @@ export function Swap({ publicKey, tokenBalances }: {
                 let baseAssetTemp = baseAsset;
                 setBaseAsset(quoteAsset);
                 setQuoteAsset(baseAssetTemp);
-            }} className="cursor-pointer rounded-full w-10 h-10 border absolute mt-[-20px] bg-white flex justify-center pt-2">
+            }} className="cursor-pointer rounded-full w-10 h-10 border absolute mt-[-20px] bg-white flex justify-center pt-2 hover:shadow-lg transition-shadow">
                 <SwapIcon />
             </div>
         </div>
@@ -76,19 +141,12 @@ export function Swap({ publicKey, tokenBalances }: {
          }} selectedToken={quoteAsset} title={"You receive"}  topBorderEnabled={false} bottomBorderEnabled={true} />
 
          <div className="flex justify-end pt-4">
-            <PrimaryButton onClick={async () => {
-                // trigger swap
-                try {
-                    const res = await axios.post("/api/swap", { 
-                        quoteResponse
-                    })
-                    if (res.data.txnId) {
-                        alert("Swap done!");
-                    }
-                } catch(e) {
-                    alert("Error while sending a txn")
-                }
-            }}>Swap</PrimaryButton>
+            <PrimaryButton 
+                onClick={handleSwap}
+                disabled={swapping || !baseAmount || !quoteAmount || fetchingQuote || hasInsufficientBalance || !quoteResponse}
+            >
+                {swapping ? "Swapping..." : hasInsufficientBalance ? "Insufficient Balance" : "Swap"}
+            </PrimaryButton>
         </div>
     </div>
 }
@@ -114,9 +172,17 @@ function SwapInputRow({onSelect, amount, onAmountChange, selectedToken, title, s
             {subtitle}
         </div>
         <div>
-            <input disabled={inputDisabled} onChange={(e) => {
-                onAmountChange?.(e.target.value);
-            }} placeholder="0" type="text" className="bg-slate-50 p-6 outline-none text-4xl" dir="rtl" value={inputLoading ? "Loading" : amount}></input>
+            <input 
+                disabled={inputDisabled} 
+                onChange={(e) => {
+                    onAmountChange?.(e.target.value);
+                }} 
+                placeholder="0" 
+                type="text" 
+                className="bg-slate-50 p-6 outline-none text-4xl" 
+                dir="rtl" 
+                value={inputLoading ? "Loading..." : (amount || "")}
+            />
         </div>
     </div>
 }

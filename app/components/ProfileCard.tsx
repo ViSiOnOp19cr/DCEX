@@ -7,14 +7,18 @@ import { useEffect, useState } from "react";
 import { TokenWithbalance, useTokens } from "../api/hooks/useToken";
 import { TokenList } from "./TokenList";
 import { Swap } from "./Swap";
+import { Send } from "./Send";
+import { TransactionHistory } from "./TransactionHistory";
+import { AddFunds } from "./AddFunds";
 
-type Tab = "tokens" | "send" | "add_funds" | "swap" | "withdraw"
+type Tab = "tokens" | "send" | "add_funds" | "swap" | "withdraw" | "history"
 const tabs: {id: Tab; name: string}[] = [
     {id: "tokens", name: "Tokens"}, 
     {id: "send", name: "Send"}, 
+    {id: "swap", name: "Swap"},
+    {id: "history", name: "History"},
     {id: "add_funds", name: "Add funds"},
     {id: "withdraw", name: "Withdraw"},
-    {id: "swap", name: "Swap"},
 ];
 
 export const ProfileCard = ({publicKey}: {
@@ -36,13 +40,13 @@ export const ProfileCard = ({publicKey}: {
         return null
     }
 
-    return <div className="pt-8 flex justify-center">
+    return <div className="pt-8 flex justify-center px-4">
         <div className="max-w-4xl bg-white rounded shadow w-full">
             <Greeting 
                 image={session.data?.user?.image ?? ""} 
                 name={session.data?.user?.name ?? ""} 
             />
-            <div className="w-full flex px-10">
+            <div className="w-full flex px-4 md:px-10 overflow-x-auto">
                 {tabs.map(tab => <TabButton key={tab.id} active={tab.id === selectedTab} onClick={() => {
                     setSelectedTab(tab.id)
                 }}>{tab.name}</TabButton>)}
@@ -50,7 +54,10 @@ export const ProfileCard = ({publicKey}: {
             
             <div className={`${selectedTab === "tokens" ? "visible" : "hidden"}`}><Assets tokenBalances={tokenBalances} loading={loading} error={error} publicKey={publicKey} /> </div>
             <div className={`${selectedTab === "swap" ? "visible" : "hidden"}`}><Swap tokenBalances={tokenBalances} publicKey={publicKey} /> </div>
-            <div className={`${(selectedTab !== "swap" && selectedTab !== "tokens") ? "visible" : "hidden"}`}><Warning /> </div>
+            <div className={`${selectedTab === "send" ? "visible" : "hidden"}`}><Send tokenBalances={tokenBalances} publicKey={publicKey} /> </div>
+            <div className={`${selectedTab === "history" ? "visible" : "hidden"}`}><TransactionHistory publicKey={publicKey} /> </div>
+            <div className={`${selectedTab === "add_funds" ? "visible" : "hidden"}`}><AddFunds publicKey={publicKey} /> </div>
+            <div className={`${(selectedTab !== "swap" && selectedTab !== "tokens" && selectedTab !== "send" && selectedTab !== "history" && selectedTab !== "add_funds") ? "visible" : "hidden"}`}><Warning /> </div>
         </div>
         
     </div>
@@ -101,15 +108,15 @@ function Assets({publicKey, tokenBalances, loading, error}: {
     }
 
     return <div className="text-slate-500">
-        <div className="mx-12 py-2">
+        <div className="mx-6 md:mx-12 py-2">
             Account assets
         </div>
-        <div className="flex justify-between mx-12">
+        <div className="flex flex-col md:flex-row justify-between mx-6 md:mx-12 space-y-4 md:space-y-0">
             <div className="flex">
-                <div className="text-5xl font-bold text-black">
+                <div className="text-3xl md:text-5xl font-bold text-black">
                     ${tokenBalances?.totalBalance}
                 </div>
-                <div className="font-slate-500 font-bold text-3xl flex flex-col justify-end pb-0 pl-2">
+                <div className="font-slate-500 font-bold text-xl md:text-3xl flex flex-col justify-end pb-0 pl-2">
                     USD
                 </div>
             </div>
@@ -122,7 +129,7 @@ function Assets({publicKey, tokenBalances, loading, error}: {
             </div>
         </div>
 
-        <div className="pt-4 bg-slate-50 p-12 mt-4">
+        <div className="pt-4 bg-slate-50 p-6 md:p-12 mt-4">
             <TokenList tokens={tokenBalances?.tokens || []} />
         </div>
     </div>
@@ -133,9 +140,9 @@ function Greeting({
 }: {
     image: string, name: string
 }) {
-    return <div className="flex p-12">
-        <img src={image} className="rounded-full w-16 h-16 mr-4" />
-        <div className="text-2xl font-semibold flex flex-col justify-center">
+    return <div className="flex p-6 md:p-12">
+        <img src={image} className="rounded-full w-12 h-12 md:w-16 md:h-16 mr-4" />
+        <div className="text-lg md:text-2xl font-semibold flex flex-col justify-center">
            Welcome back, {name}
         </div>
     </div>
